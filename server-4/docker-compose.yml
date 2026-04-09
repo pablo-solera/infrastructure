@@ -1,0 +1,12 @@
+services:
+  reader-api:
+    image: pablosla/reader-test:latest
+    container_name: reader-api
+    ports:
+      - "3001:3001"
+    networks:
+      - acciona
+
+networks:
+  acciona:
+    external: true

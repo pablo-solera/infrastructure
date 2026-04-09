@@ -1,0 +1,21 @@
+services:
+  web-test:
+    image: pablosla/web-test:latest
+    container_name: web-test
+    ports:
+      - "8081:80"
+    networks:
+      - acciona
+  java-api:
+    image: pablosla/api-test:dev-latest
+    container_name: java-api
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=dev
+    networks:
+      - acciona
+
+networks:
+  acciona:
+    external: true
