@@ -23,6 +23,11 @@ services:
       - postgres
     networks:
       - acciona
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.gitea.rule=Host(`${TRAEFIK_HOSTNAME}`)"
+      - "traefik.http.routers.gitea.entrypoints=web"
+      - "traefik.http.services.gitea.loadbalancer.server.port=3000"
 
   postgres:
     container_name: postgres-db
