@@ -8,6 +8,15 @@ scrape_configs:
     static_configs:
       - targets: ['localhost:9090']
 
+  # Métricas de gitea
+  - job_name: 'gitea'
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+    static_configs:
+      - targets: [ 'gitea:3000' ]
+        labels:
+          application: 'gitea'
+
   # Métricas de un reader
   - job_name: 'node-api'
     metrics_path: '/metrics'
