@@ -17,9 +17,9 @@ services:
 
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.nexus.rule=Host(`${PROMETHEUS_HOSTNAME}`)"
-      - "traefik.http.routers.nexus.entrypoints=web"
-      - "traefik.http.services.nexus.loadbalancer.server.port=9090"
+      - "traefik.http.routers.prometheus.rule=Host(`${PROMETHEUS_HOSTNAME}`)"
+      - "traefik.http.routers.prometheus.entrypoints=web"
+      - "traefik.http.services.prometheus.loadbalancer.server.port=9090"
 
   grafana:
     image: grafana/grafana:latest
@@ -39,9 +39,9 @@ services:
       - acciona
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.nexus.rule=Host(`${GRAFANA_HOSTNAME}`)"
-      - "traefik.http.routers.nexus.entrypoints=web"
-      - "traefik.http.services.nexus.loadbalancer.server.port=3001"
+      - "traefik.http.routers.grafana.rule=Host(`${GRAFANA_HOSTNAME}`)"
+      - "traefik.http.routers.grafana.entrypoints=web"
+      - "traefik.http.services.grafana.loadbalancer.server.port=3001"
 volumes:
   prometheus_data:
   grafana_data:
