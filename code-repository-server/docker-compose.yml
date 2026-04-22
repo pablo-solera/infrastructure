@@ -12,6 +12,7 @@ services:
       - GITEA__database__PASSWD=${GITEA_DATABASE_PASSWORD}
       - GITEA__service__DISABLE_REGISTRATION=${GITEA_SERVICE_DISABLE_REGISTRATION}
       - GITEA__repository__DEFAULT_BRANCH=${GITEA_REPOSITORY_DEFAULT_BRANCH}
+      - GITEA__metrics__ENABLED=${GITEA_METRICS_ENABLED}
     restart: unless-stopped
     volumes:
       - ./data:/data
