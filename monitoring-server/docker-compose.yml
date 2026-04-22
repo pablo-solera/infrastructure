@@ -41,7 +41,7 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.grafana.rule=Host(`${GRAFANA_HOSTNAME}`)"
       - "traefik.http.routers.grafana.entrypoints=web"
-      - "traefik.http.services.grafana.loadbalancer.server.port=3001"
+      - "traefik.http.services.grafana.loadbalancer.server.port=3000"
 volumes:
   prometheus_data:
   grafana_data:
