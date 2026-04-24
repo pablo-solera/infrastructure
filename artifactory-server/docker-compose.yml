@@ -30,3 +30,7 @@ services:
 
 volumes:
   nexus-data:   
+
+networks:
+  acciona:
+    external: true
