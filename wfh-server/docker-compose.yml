@@ -12,6 +12,11 @@ services:
       - "3000:3000"
     depends_on:
       - postgres
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.wfh.rule=Host(`${TRAEFIK_HOSTNAME}`)"
+      - "traefik.http.routers.wfh.entrypoints=web"
+      - "traefik.http.services.wfh.loadbalancer.server.port=3000"
         
 
   postgres:
