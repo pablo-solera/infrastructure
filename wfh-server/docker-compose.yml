@@ -1,6 +1,6 @@
 services:
   web:
-    image: work-from-home-web:latest
+    image: pablosla/work-from-home-web:latest
     container_name: work-from-home-web
     restart: unless-stopped
     environment:
