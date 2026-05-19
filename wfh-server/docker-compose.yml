@@ -6,13 +6,12 @@ services:
     environment:
       NODE_ENV: production
       NEXT_TELEMETRY_DISABLED: "1"
-      DATABASE_URL: ${APP_DATABASE_URL}
+      DATABASE_URL: ${DATABASE_URL}
       SESSION_SECRET: ${SESSION_SECRET}
     depends_on:
       - postgres
     networks:
       - acciona
-      - default
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.wfh.rule=Host(`${TRAEFIK_HOSTNAME}`)"
@@ -32,6 +31,8 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql
+    networks:
+      - acciona
 
 volumes:
   postgres_data:
