@@ -8,10 +8,11 @@ services:
       NEXT_TELEMETRY_DISABLED: "1"
       DATABASE_URL: ${APP_DATABASE_URL}
       SESSION_SECRET: ${SESSION_SECRET}
-    ports:
-      - "3000:3000"
     depends_on:
       - postgres
+    networks:
+      - acciona
+      - default
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.wfh.rule=Host(`${TRAEFIK_HOSTNAME}`)"
@@ -34,3 +35,7 @@ services:
 
 volumes:
   postgres_data:
+
+networks:
+  acciona:
+    external: true
