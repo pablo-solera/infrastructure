@@ -4,8 +4,6 @@ services:
     container_name: work-from-home-web
     restart: unless-stopped
     environment:
-      NODE_ENV: production
-      NEXT_TELEMETRY_DISABLED: "1"
       DATABASE_URL: ${DATABASE_URL}
       SESSION_SECRET: ${SESSION_SECRET}
     depends_on:
@@ -17,7 +15,6 @@ services:
       - "traefik.http.routers.wfh.rule=Host(`${TRAEFIK_HOSTNAME}`)"
       - "traefik.http.routers.wfh.entrypoints=web"
       - "traefik.http.services.wfh.loadbalancer.server.port=3000"
-        
 
   postgres:
     image: postgres:18.3
