@@ -16,6 +16,7 @@ services:
       - postgres
     networks:
       - acciona
+      - default
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.wfh.rule=Host(`${TRAEFIK_HOSTNAME}`)"
@@ -35,7 +36,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql
     networks:
-      - acciona
+      - default
 
 volumes:
   postgres_data:
