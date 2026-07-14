@@ -15,6 +15,7 @@ services:
       - GITEA__metrics__ENABLED=${GITEA_METRICS_ENABLED}
       - GITEA__metrics__ENABLED_ISSUE_BY_LABEL=${GITEA_ENABLED_ISSUE_BY_LABEL}
       - GITEA__metrics__ENABLED_ISSUE_BY_REPOSITORY=${GITEA_ENABLED_ISSUE_BY_REPOSITORY}
+      - GITEA__migrations__ALLOW_LOCALNETWORKS=${GITEA_MIGRATIONS_ALLOW_LOCALNETWORKS}
     restart: unless-stopped
     volumes:
       - gitea_data:/data
