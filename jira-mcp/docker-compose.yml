@@ -1,0 +1,19 @@
+services:
+  mcp-jira:
+    image: mcp/atlassian:latest
+    container_name: mcp-jira
+    command: ["--transport", "streamable-http", "--stateless", "--port", "9000"]
+    env_file: ./.env
+    restart: unless-stopped
+    networks:
+      - acciona
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=acciona"
+      - "traefik.http.routers.mcp-jira.rule=Host(`${TRAEFIK_HOSTNAME}`)"
+      - "traefik.http.routers.mcp-jira.entrypoints=web"
+      - "traefik.http.services.mcp-jira.loadbalancer.server.port=9000"
+
+networks:
+  acciona:
+    external: true
