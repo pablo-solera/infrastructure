@@ -1,0 +1,7 @@
+.env
+data/
+logs/
+README.md
+smoke-test.mjs
+.gitignore
+.gitattributes

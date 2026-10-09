@@ -1,0 +1,28 @@
+services:
+  mcp-timertask:
+    build: .
+    image: pablosla/timertask-mcp:1.0.0
+    container_name: mcp-timertask
+    restart: unless-stopped
+    init: true
+    mem_limit: 4g
+    environment:
+      MCP_PORT: "9001"
+      MCP_SESSION_TIMEOUT_MS: "1800000"
+      DBTOOLS_TEMPLATE: /opt/mcp/dbtools-template
+      MCP_LOG_DIR: /opt/mcp/logs
+    volumes:
+      - ./data/dbtools:/opt/mcp/dbtools-template:ro
+      - ./logs:/opt/mcp/logs
+    networks:
+      - acciona
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=acciona"
+      - "traefik.http.routers.mcp-timertask.rule=Host(`${TRAEFIK_HOSTNAME}`)"
+      - "traefik.http.routers.mcp-timertask.entrypoints=web"
+      - "traefik.http.services.mcp-timertask.loadbalancer.server.port=9001"
+
+networks:
+  acciona:
+    external: true
