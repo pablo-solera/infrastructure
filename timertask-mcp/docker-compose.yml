@@ -1,7 +1,7 @@
 services:
   mcp-timertask:
     build: .
-    image: pablosla/timertask-mcp:1.0.0
+    image: pablosla/timertask-mcp:1.0.1
     container_name: mcp-timertask
     restart: unless-stopped
     init: true

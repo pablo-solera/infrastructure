@@ -26,22 +26,38 @@ Idle sessions time out after 30 minutes. Container memory is capped at 4 GiB.
 
 ## Server setup
 
-Run these commands from this directory:
+Run these commands from this directory. In PowerShell:
 
-```sh
-cp .env.example .env
-mkdir -p data/dbtools logs
+```powershell
+Copy-Item .env.example .env
+New-Item -ItemType Directory -Force data\dbtools, logs | Out-Null
 ```
 
 Create the saved connection interactively so its password is not put in shell
 history, the Compose file, or this repository:
 
-```sh
-docker run --rm -it \
-  --entrypoint /opt/oracle/sqlcl/bin/sql \
-  -v "$PWD/data/dbtools:/root/.dbtools" \
-  mcp/timertask-sqlcl:26.2.0 /nolog
+```powershell
+docker run --rm -it `
+  --entrypoint /opt/oracle/sqlcl/bin/sql `
+  -v "${PWD}\data\dbtools:/root/.dbtools" `
+  pablosla/timertask-mcp:1.0.1 /nolog
 ```
+
+For Git Bash, disable MSYS path conversion. Without this, Git Bash rewrites
+container paths such as `/opt/oracle/...` into Windows paths before Docker sees
+them:
+
+```sh
+cp .env.example .env
+mkdir -p data/dbtools logs
+MSYS_NO_PATHCONV=1 winpty docker run --rm -it \
+  --entrypoint /opt/oracle/sqlcl/bin/sql \
+  -v "$(pwd -W)/data/dbtools:/root/.dbtools" \
+  pablosla/timertask-mcp:1.0.1 /nolog
+```
+
+If `winpty` is unavailable or reports an error, omit it. Enter the password only
+at SQLcl's prompt. In either shell, save the connection:
 
 At the SQLcl prompt, enter:
 
@@ -53,15 +69,19 @@ exit
 If `conn` prompts for the password, enter it there. Confirm `data/dbtools`
 contains the saved `timertask` connection, then start the service:
 
-```sh
-docker compose up -d --build
+```powershell
+docker compose pull
+docker compose up -d
 docker compose ps
 docker compose logs --tail=100 mcp-timertask
 ```
 
 The Compose service joins the existing external Docker network `acciona`; it
 does not publish a host port. Traefik routes the hostname to container port
-9001 through the `web` entrypoint, matching `jira-mcp`.
+9001 through the `web` entrypoint, matching `jira-mcp`. If Docker reports that
+the external `acciona` network does not exist, create it with
+`docker network create acciona`; if Traefik is already running there, the
+network should already exist.
 
 ## OpenCode client configuration
 
@@ -92,7 +112,7 @@ docker run --rm --name mcp-timertask-local \
   -e MCP_SESSION_TIMEOUT_MS=120000 \
   -v /absolute/path/to/local/dbtools:/opt/mcp/dbtools-template:ro \
   -v "$PWD/logs:/opt/mcp/logs" \
-  mcp/timertask-sqlcl:26.2.0
+  pablosla/timertask-mcp:1.0.1
 ```
 
 In another terminal, run `node smoke-test.mjs`.
@@ -103,7 +123,7 @@ confirm separate SQLcl processes.
 
 ## Operational notes
 
-- Image is published as `pablosla/timertask-mcp:1.0.0`. The SQLcl base is pinned to digest
+- Image is published as `pablosla/timertask-mcp:1.0.1`. The SQLcl base is pinned to digest
   `sha256:e0bddbcdfda9b2d83ce91af74c3f5ed71768ad29bbcd5523da837c4051056a54`
   (SQLcl 26.2.0.181.2110); Supergateway is pinned to 4.1.0.
 - SQLcl's `mcp.log` is copied to `./logs` when its client session exits. The
