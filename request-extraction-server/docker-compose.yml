@@ -2,6 +2,10 @@
 # reaches them by service name over the external "acciona" network (bmw-reader-api, bmw-transformer-api,
 # renault-reader-api), so start etl-server first.
 #
+# Settings: the web loads .env (env_file) and overrides here, in "environment", only what depends on this stack: the
+# database URL, the internal addresses of the readers and a fixed Oracle client path. .env is also what Compose reads to
+# fill the ${...} placeholders of this file.
+#
 # The site is served over plain HTTP through Traefik, hence SESSION_COOKIE_SECURE=false in .env.
 
 services:
@@ -36,54 +40,15 @@ services:
     image: pablosla/request-extraction-web:${WEB_VERSION:-1.0.0}
     container_name: request-extraction-web
     restart: unless-stopped
+    env_file: .env
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET in .env}
-      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
-      APP_BASE_URL: ${APP_BASE_URL:?set APP_BASE_URL in .env}
-      RECONCILE_SECRET: ${RECONCILE_SECRET:?set RECONCILE_SECRET in .env}
       # Readers and transformer, by service name on the shared network.
-      BMW_READER_BASE_URL: ${BMW_READER_BASE_URL:-http://bmw-reader-api:3004}
-      BMW_READER_LANGUAGE: ${BMW_READER_LANGUAGE:-en-GB}
-      BMW_TRANSFORMER_BASE_URL: ${BMW_TRANSFORMER_BASE_URL:-http://bmw-transformer-api:3005}
-      RENAULT_READER_BASE_URL: ${RENAULT_READER_BASE_URL:-http://renault-reader-api:3000}
-      RENAULT_READER_FORMAT: ${RENAULT_READER_FORMAT:-json}
-      RENAULT_READER_LANGUAGE: ${RENAULT_READER_LANGUAGE:-es}
-      RENAULT_READER_RANGE: ${RENAULT_READER_RANGE:-active}
-      RENAULT_READER_DOWNLOAD_ORIGIN: ${RENAULT_READER_DOWNLOAD_ORIGIN:?set RENAULT_READER_DOWNLOAD_ORIGIN in .env}
-      RENAULT_TRANSFORMER_BASE_URL: ${RENAULT_TRANSFORMER_BASE_URL:-}
-      VAG_READER_BASE_URL: ${VAG_READER_BASE_URL:-}
-      VAG_TRANSFORMER_BASE_URL: ${VAG_TRANSFORMER_BASE_URL:-}
-      # Organization data (TimerTask / Oracle).
-      ORACLE_USER: ${ORACLE_USER}
-      ORACLE_PASSWORD: ${ORACLE_PASSWORD}
-      ORACLE_CONNECT_STRING: ${ORACLE_CONNECT_STRING}
-      ORACLE_TIMERTASK_SCHEMA: ${ORACLE_TIMERTASK_SCHEMA:-TIMERTASK_ES}
-      ORACLE_STAFF_LINE_IDS: ${ORACLE_STAFF_LINE_IDS}
-      ORACLE_COORDINATOR_GROUP_ID: ${ORACLE_COORDINATOR_GROUP_ID:-1017}
-      ORACLE_ADMIN_GROUP_ID: ${ORACLE_ADMIN_GROUP_ID:-1024}
-      ORACLE_EXCLUDED_GROUP_IDS: ${ORACLE_EXCLUDED_GROUP_IDS}
-      ORG_SNAPSHOT_TTL_SECONDS: ${ORG_SNAPSHOT_TTL_SECONDS:-60}
-      # Active Directory over LDAP.
-      INTEGRATION_LDAP_URL: ${INTEGRATION_LDAP_URL}
-      INTEGRATION_LDAP_ACCESSACCOUNT_UPN: ${INTEGRATION_LDAP_ACCESSACCOUNT_UPN}
-      INTEGRATION_LDAP_ACCESSACCOUNT_PWD: ${INTEGRATION_LDAP_ACCESSACCOUNT_PWD}
-      INTEGRATION_LDAP_USER_BASESEARCHGROUP: ${INTEGRATION_LDAP_USER_BASESEARCHGROUP}
-      INTEGRATION_LDAP_ALLOWED_GROUP_DN: ${INTEGRATION_LDAP_ALLOWED_GROUP_DN:-}
-      # Local test accounts: keep disabled in production.
-      TEST_ACCOUNTS_ENABLED: ${TEST_ACCOUNTS_ENABLED:-false}
-      TEST_ACCOUNTS_PASSWORD: ${TEST_ACCOUNTS_PASSWORD:-}
-      TEST_ACCOUNT_ADMIN: ${TEST_ACCOUNT_ADMIN:-}
-      TEST_ACCOUNT_COORDINATOR: ${TEST_ACCOUNT_COORDINATOR:-}
-      TEST_ACCOUNT_EMPLOYEE: ${TEST_ACCOUNT_EMPLOYEE:-}
-      # Email through the internal SMTP relay (no authentication).
-      MAIL_ENABLED: ${MAIL_ENABLED:-false}
-      SMTP_HOST: ${SMTP_HOST:-}
-      SMTP_PORT: ${SMTP_PORT:-25}
-      SMTP_SECURE: ${SMTP_SECURE:-false}
-      SMTP_FROM: ${SMTP_FROM:-extracciones@audatex.es}
-      MAIL_SUPPORT_TO: ${MAIL_SUPPORT_TO:-DL-ESMA-D-Acciona@audatexdatos.es}
-      MAIL_REDIRECT_TO: ${MAIL_REDIRECT_TO:-}
+      BMW_READER_BASE_URL: http://bmw-reader-api:3004
+      BMW_TRANSFORMER_BASE_URL: http://bmw-transformer-api:3005
+      RENAULT_READER_BASE_URL: http://renault-reader-api:3000
+      # Provided by the image. Fixed here so an empty value in .env can never override it and break the Oracle client.
+      ORACLE_CLIENT_LIB_DIR: /opt/oracle/instantclient
     depends_on:
       postgres:
         condition: service_healthy
