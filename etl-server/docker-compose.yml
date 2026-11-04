@@ -1,0 +1,163 @@
+# Readers and transformer of the ETL pipeline. Only the three APIs are published (through Traefik, HTTP); Redis and the
+# workers stay on this project's private network. The APIs also join the external "acciona" network, which is how
+# Traefik reaches them and how the extraction web calls them by service name (http://bmw-reader-api:3004).
+#
+# Compose-level values (image versions, public host names) come from .env. Each application reads its own settings
+# from bmw.env / renault.env, which keeps every secret out of the services that do not need it.
+
+services:
+  etl-redis:
+    image: redis:8.10.2-alpine
+    container_name: etl-redis
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  bmw-reader-api:
+    image: pablosla/bmw-reader:${BMW_READER_VERSION:-1.0.0}
+    container_name: bmw-reader-api
+    command: ["bun", "src/index.ts"]
+    env_file:
+      - bmw.env
+    environment:
+      HOST: 0.0.0.0
+      PORT: "3004"
+      REDIS_URL: redis://etl-redis:6379/0
+    depends_on:
+      etl-redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "bun", "-e", "fetch('http://127.0.0.1:3004/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+    networks:
+      - default
+      - acciona
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.bmw-reader.rule=Host(`${BMW_READER_HOSTNAME:?set BMW_READER_HOSTNAME in .env}`)"
+      - "traefik.http.routers.bmw-reader.entrypoints=web"
+      - "traefik.http.services.bmw-reader.loadbalancer.server.port=3004"
+
+  bmw-reader-worker:
+    image: pablosla/bmw-reader:${BMW_READER_VERSION:-1.0.0}
+    container_name: bmw-reader-worker
+    command: ["bun", "src/worker.ts"]
+    env_file:
+      - bmw.env
+    environment:
+      REDIS_URL: redis://etl-redis:6379/0
+    depends_on:
+      etl-redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "bun", "src/worker-healthcheck.ts"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    stop_grace_period: 90s
+    restart: unless-stopped
+
+  bmw-transformer-api:
+    image: pablosla/bmw-transformer:${BMW_TRANSFORMER_VERSION:-1.0.0}
+    container_name: bmw-transformer-api
+    command: ["bun", "src/index.ts"]
+    env_file:
+      - bmw.env
+    environment:
+      HOST: 0.0.0.0
+      PORT: "3005"
+      REDIS_URL: redis://etl-redis:6379/0
+    depends_on:
+      etl-redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "bun", "-e", "fetch('http://127.0.0.1:3005/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+    networks:
+      - default
+      - acciona
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.bmw-transformer.rule=Host(`${BMW_TRANSFORMER_HOSTNAME:?set BMW_TRANSFORMER_HOSTNAME in .env}`)"
+      - "traefik.http.routers.bmw-transformer.entrypoints=web"
+      - "traefik.http.services.bmw-transformer.loadbalancer.server.port=3005"
+
+  bmw-transformer-worker:
+    image: pablosla/bmw-transformer:${BMW_TRANSFORMER_VERSION:-1.0.0}
+    container_name: bmw-transformer-worker
+    command: ["bun", "src/worker.ts"]
+    env_file:
+      - bmw.env
+    environment:
+      REDIS_URL: redis://etl-redis:6379/0
+    depends_on:
+      etl-redis:
+        condition: service_healthy
+    stop_grace_period: 90s
+    restart: unless-stopped
+
+  renault-reader-api:
+    image: pablosla/renault-reader:${RENAULT_READER_VERSION:-1.0.0}
+    container_name: renault-reader-api
+    command: ["bun", "src/index.ts"]
+    env_file:
+      - renault.env
+    environment:
+      HOST: 0.0.0.0
+      PORT: "3000"
+      # Same Redis as BMW but its own logical database, so queue and state keys never mix.
+      REDIS_URL: redis://etl-redis:6379/1
+    depends_on:
+      etl-redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "bun", "-e", "fetch('http://127.0.0.1:3000/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+    networks:
+      - default
+      - acciona
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.renault-reader.rule=Host(`${RENAULT_READER_HOSTNAME:?set RENAULT_READER_HOSTNAME in .env}`)"
+      - "traefik.http.routers.renault-reader.entrypoints=web"
+      - "traefik.http.services.renault-reader.loadbalancer.server.port=3000"
+
+  renault-reader-worker:
+    image: pablosla/renault-reader:${RENAULT_READER_VERSION:-1.0.0}
+    container_name: renault-reader-worker
+    command: ["bun", "src/worker.ts"]
+    env_file:
+      - renault.env
+    environment:
+      REDIS_URL: redis://etl-redis:6379/1
+    depends_on:
+      etl-redis:
+        condition: service_healthy
+    stop_grace_period: 90s
+    restart: unless-stopped
+
+volumes:
+  redis-data:
+
+networks:
+  acciona:
+    external: true
