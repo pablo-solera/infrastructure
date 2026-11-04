@@ -1,1 +1,3 @@
 .env
+# Local testing only: publishes the ports on the host (there is no Traefik on a developer machine).
+docker-compose.override.yml

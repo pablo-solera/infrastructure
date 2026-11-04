@@ -1,1 +1,3 @@
 .env
+# Local testing only: publishes the web on the host and renames the PostgreSQL container (there is no Traefik on a developer machine).
+docker-compose.override.yml
