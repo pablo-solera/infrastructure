@@ -2,6 +2,8 @@
 # reaches them by service name over the external "acciona" network (bmw-reader-api, bmw-transformer-api,
 # renault-reader-api), so start etl-server first.
 #
+# Image versions are written in each "image:" line (the version of the web's package.json); update them there on a release.
+#
 # Settings: the web loads .env (env_file) and overrides here, in "environment", only what depends on this stack: the
 # database URL, the internal addresses of the readers and a fixed Oracle client path. .env is also what Compose reads to
 # fill the ${...} placeholders of this file.
@@ -27,7 +29,7 @@ services:
 
   # One-shot: applies the database migrations and exits. The web only starts after it succeeds.
   migrate:
-    image: pablosla/request-extraction-web-migrate:${WEB_VERSION:-1.0.0}
+    image: pablosla/request-extraction-web-migrate:1.0.0
     container_name: request-extraction-migrate
     restart: "no"
     environment:
@@ -37,7 +39,7 @@ services:
         condition: service_healthy
 
   web:
-    image: pablosla/request-extraction-web:${WEB_VERSION:-1.0.0}
+    image: pablosla/request-extraction-web:1.0.0
     container_name: request-extraction-web
     restart: unless-stopped
     env_file: .env
@@ -66,7 +68,7 @@ services:
   # Calls the reconciliation endpoint every minute with the web image itself (Node's fetch), so requests, loads and email
   # retries keep moving even when nobody has the history page open. It uses this project's private network.
   reconcile:
-    image: pablosla/request-extraction-web:${WEB_VERSION:-1.0.0}
+    image: pablosla/request-extraction-web:1.0.0
     container_name: request-extraction-reconcile
     restart: unless-stopped
     environment:
