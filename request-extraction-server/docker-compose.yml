@@ -11,7 +11,8 @@
 # The site is served over plain HTTP through Traefik, hence SESSION_COOKIE_SECURE=false in .env.
 
 services:
-  postgres:
+  # Named "request-extraction-db" (not "postgres") because the web also joins "acciona", where db-server publishes another "postgres".
+  request-extraction-db:
     image: postgres:18.3
     container_name: request-extraction-postgres
     restart: unless-stopped
@@ -34,14 +35,14 @@ services:
     container_name: request-extraction-migrate
     restart: "no"
     environment:
-      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@request-extraction-db:5432/${POSTGRES_DB}
       TEST_ACCOUNTS_ENABLED: ${TEST_ACCOUNTS_ENABLED:-false}
       TEST_ACCOUNTS_PASSWORD: ${TEST_ACCOUNTS_PASSWORD:-}
       TEST_ACCOUNT_ADMIN: ${TEST_ACCOUNT_ADMIN:-}
       TEST_ACCOUNT_COORDINATOR: ${TEST_ACCOUNT_COORDINATOR:-}
       TEST_ACCOUNT_EMPLOYEE: ${TEST_ACCOUNT_EMPLOYEE:-}
     depends_on:
-      postgres:
+      request-extraction-db:
         condition: service_healthy
 
   web:
@@ -50,7 +51,7 @@ services:
     restart: unless-stopped
     env_file: .env
     environment:
-      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@request-extraction-db:5432/${POSTGRES_DB}
       # Readers and transformer, by service name on the shared network.
       BMW_READER_BASE_URL: http://bmw-reader-api:3004
       BMW_TRANSFORMER_BASE_URL: http://bmw-transformer-api:3005
@@ -58,7 +59,7 @@ services:
       # Provided by the image. Fixed here so an empty value in .env can never override it and break the Oracle client.
       ORACLE_CLIENT_LIB_DIR: /opt/oracle/instantclient
     depends_on:
-      postgres:
+      request-extraction-db:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
@@ -67,7 +68,7 @@ services:
       - acciona
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.request-extraction.rule=Host(`${WEB_HOSTNAME:?set WEB_HOSTNAME in .env}`)"
+      - "traefik.http.routers.request-extraction.rule=Host(`${TRAEFIK_HOSTNAME:?set TRAEFIK_HOSTNAME in .env}`)"
       - "traefik.http.routers.request-extraction.entrypoints=web"
       - "traefik.http.services.request-extraction.loadbalancer.server.port=3000"
 
