@@ -24,7 +24,7 @@ services:
     restart: unless-stopped
 
   bmw-reader-api:
-    image: pablosla/bmw-reader:1.0.0
+    image: pablosla/bmw-reader:1.1.0
     container_name: bmw-reader-api
     command: ["bun", "src/index.ts"]
     env_file: .env
@@ -50,7 +50,7 @@ services:
       - "traefik.http.services.bmw-reader.loadbalancer.server.port=3004"
 
   bmw-reader-worker:
-    image: pablosla/bmw-reader:1.0.0
+    image: pablosla/bmw-reader:1.1.0
     container_name: bmw-reader-worker
     command: ["bun", "src/worker.ts"]
     env_file: .env
