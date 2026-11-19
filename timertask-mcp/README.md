@@ -1,14 +1,17 @@
 # SQLcl MCP for TIMERTASK
 
 Publishes Oracle SQLcl MCP over Streamable HTTP for OpenCode. Traefik routes
-`http://accionaplus-peuwaxprvdacc03.axadmin.net/mcp` to this service on port
+`http://timertask-mcp-peuwaxprvdacc03.axadmin.net/mcp` to this service on port
 9001. It is intended for the internal network and has no MCP API key, matching
 the Jira MCP deployment.
 
 ## What is exposed
 
 The gateway exposes SQLcl MCP's `connections_list`, `connect`, `disconnect`,
-`sql_run`, `schema_information`, and `request_status` tools. `sql_run` supports
+`sql_run`, `schema_information`, and `request_status` tools. Schema information
+levels `OVERVIEW`, `DETAILED`, and `TABLE_DETAILS` are served by an Oracle 11g-
+compatible adapter over the data dictionary; `BRIEF` continues to use SQLcl.
+`sql_run` supports
 standard SQL queries and PL/SQL, including SELECT queries against Oracle data
 dictionary views. `sqlcl_run`, `skills_sync`, and `annotation_generate` are
 removed from `tools/list` and rejected if called directly.
@@ -40,7 +43,7 @@ history, the Compose file, or this repository:
 docker run --rm -it `
   --entrypoint /opt/oracle/sqlcl/bin/sql `
   -v "${PWD}\data\dbtools:/root/.dbtools" `
-  pablosla/timertask-mcp:1.0.1 /nolog
+  pablosla/timertask-mcp:1.1.0 /nolog
 ```
 
 For Git Bash, disable MSYS path conversion. Without this, Git Bash rewrites
@@ -53,7 +56,7 @@ mkdir -p data/dbtools logs
 MSYS_NO_PATHCONV=1 winpty docker run --rm -it \
   --entrypoint /opt/oracle/sqlcl/bin/sql \
   -v "$(pwd -W)/data/dbtools:/root/.dbtools" \
-  pablosla/timertask-mcp:1.0.1 /nolog
+  pablosla/timertask-mcp:1.1.0 /nolog
 ```
 
 If `winpty` is unavailable or reports an error, omit it. Enter the password only
@@ -90,7 +93,7 @@ Add the following MCP entry to OpenCode's configuration:
 ```jsonc
 "sqlcl": {
   "type": "remote",
-  "url": "http://accionaplus-peuwaxprvdacc03.axadmin.net/mcp",
+  "url": "http://timertask-mcp-peuwaxprvdacc03.axadmin.net/mcp",
   "enabled": true,
   "timeout": 60000
 }
@@ -112,7 +115,7 @@ docker run --rm --name mcp-timertask-local \
   -e MCP_SESSION_TIMEOUT_MS=120000 \
   -v /absolute/path/to/local/dbtools:/opt/mcp/dbtools-template:ro \
   -v "$PWD/logs:/opt/mcp/logs" \
-  pablosla/timertask-mcp:1.0.1
+  pablosla/timertask-mcp:1.1.0
 ```
 
 In another terminal, run `node smoke-test.mjs`.
@@ -123,9 +126,9 @@ confirm separate SQLcl processes.
 
 ## Operational notes
 
-- Image is published as `pablosla/timertask-mcp:1.0.1`. The SQLcl base is pinned to digest
-  `sha256:e0bddbcdfda9b2d83ce91af74c3f5ed71768ad29bbcd5523da837c4051056a54`
-  (SQLcl 26.2.0.181.2110); Supergateway is pinned to 4.1.0.
+- Image tag for this release is `pablosla/timertask-mcp:1.1.0`. The SQLcl base
+  is pinned to digest `sha256:e83a9b70d490dd679f66e22d1b827ee07e15f0bc390fa1079bd73916c6b4ecde`
+  (SQLcl 26.3.0.260.1620); Supergateway is pinned to 4.1.0.
 - SQLcl's `mcp.log` is copied to `./logs` when its client session exits. The
   temporary per-session DBTools home is then removed.
 - Logs include SQLcl's MCP audit records and must be handled as internal data.
@@ -134,3 +137,22 @@ confirm separate SQLcl processes.
 - A read-only Oracle account is still required for read-only behavior. Hiding
   `run-sqlcl` only removes SQLcl-specific commands; Oracle grants determine what
   `run-sql` can access or modify.
+
+## Build and publish a new image
+
+From this directory, build and publish the version referenced by Compose:
+
+```powershell
+docker build -t pablosla/timertask-mcp:1.1.0 .
+docker push pablosla/timertask-mcp:1.1.0
+```
+
+After pushing, on the server update `.env` so `TRAEFIK_HOSTNAME` is
+`timertask-mcp-peuwaxprvdacc03.axadmin.net`, then run:
+
+```powershell
+docker compose pull
+docker compose up -d
+docker compose ps
+docker compose logs --tail=100 mcp-timertask
+```

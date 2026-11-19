@@ -91,9 +91,50 @@ if (blockedConnection?.error?.code !== -32602) {
 
 const connections = await callTool("connections_list");
 if (!JSON.stringify(connections).toLowerCase().includes("timertask")) {
-  throw new Error("Saved connection 'timertask' was not listed");
+  throw new Error(`Saved connection 'timertask' was not listed. Available connection names: ${JSON.stringify(connections)}`);
 }
 await callTool("connect", { connection_name: "timertask" });
+
+const schemaOverview = await callTool("schema_information", { level: "OVERVIEW" });
+if (!JSON.stringify(schemaOverview).includes("TIMERTASK_ES")) {
+  throw new Error(`Schema overview did not identify TIMERTASK_ES: ${JSON.stringify(schemaOverview)}`);
+}
+
+const schemaDetails = await callTool("schema_information", {
+  level: "TABLE_DETAILS",
+  schema: "TIMERTASK_ES",
+  objects_list: "TTIPOS_DIA",
+});
+const schemaDetailsText = JSON.stringify(schemaDetails);
+for (const expected of ["TTIPOS_DIA", "TDIA_ID", "TDIA_DESC_CORTA"]) {
+  if (!schemaDetailsText.includes(expected)) {
+    throw new Error(`Schema details omitted ${expected}: ${schemaDetailsText}`);
+  }
+}
+
+const detailedSchema = await callTool("schema_information", {
+  level: "DETAILED",
+  schema: "TIMERTASK_ES",
+  filter: "TEMPLEADO_DIAS",
+});
+const detailedSchemaText = JSON.stringify(detailedSchema);
+for (const expected of ["TEMPLEADO_DIAS", "EHR_FECHA", "TDIA_ID", "references TTIPOS_DIA"]) {
+  if (!detailedSchemaText.includes(expected)) {
+    throw new Error(`Detailed schema omitted ${expected}: ${detailedSchemaText}`);
+  }
+}
+
+const viewSchema = await callTool("schema_information", {
+  level: "DETAILED",
+  schema: "TIMERTASK_ES",
+  filter: "VW_LISTA_BACKUP_EMPLEADOS",
+});
+const viewSchemaText = JSON.stringify(viewSchema);
+for (const expected of ["VIEW VW_LISTA_BACKUP_EMPLEADOS", "EMP_ID"]) {
+  if (!viewSchemaText.includes(expected)) {
+    throw new Error(`Detailed schema omitted view metadata ${expected}: ${viewSchemaText}`);
+  }
+}
 
 const currentSchema = await callTool("sql_run", {
   sql: "select sys_context('userenv', 'current_schema') as current_schema from dual",
@@ -110,6 +151,10 @@ console.log(JSON.stringify({
   endpoint,
   server: initialized.result.serverInfo,
   tools: toolNames,
+  schemaOverview: schemaOverview.content,
+  schemaDetails: schemaDetails.content,
+  detailedSchema: detailedSchema.content,
+  viewSchema: viewSchema.content,
   currentSchema: "TIMERTASK_ES",
   oracleVersion: oracleVersion.content,
 }, null, 2));
