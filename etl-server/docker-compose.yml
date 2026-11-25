@@ -7,8 +7,8 @@
 # Image versions are written in each "image:" line (the version of the application's package.json); update them there on a release.
 #
 # Settings: every application service loads .env (env_file) and then overrides, here in "environment", what is specific
-# to it: the listening PORT and the Renault reader's S3 prefix (the shared S3_PREFIX of .env is BMW's). .env is also what
-# Compose reads to fill the ${...} placeholders of this file.
+# to it: the listening PORT, the S3 prefix of its files and the API language. S3_PREFIX and API_LANGUAGE are left empty in
+# .env. .env is also what Compose reads to fill the ${...} placeholders of this file.
 
 services:
   # Redis shared by every reader and transformer (queues and state). Private network only
@@ -27,12 +27,14 @@ services:
 
   # BMW reader: API (through Traefik) and its queue worker
   bmw-reader-api:
-    image: pablosla/bmw-reader:1.1.0
+    image: pablosla/bmw-reader:2.0.0
     container_name: bmw-reader-api
     command: ["bun", "src/index.ts"]
     env_file: .env
     environment:
       PORT: "3004"
+      S3_PREFIX: BMW_GROUP_TEST
+      API_LANGUAGE: en-GB
     depends_on:
       etl-redis:
         condition: service_healthy
@@ -58,10 +60,13 @@ services:
       - "traefik.http.services.bmw-reader.loadbalancer.server.port=3004"
 
   bmw-reader-worker:
-    image: pablosla/bmw-reader:1.1.0
+    image: pablosla/bmw-reader:2.0.0
     container_name: bmw-reader-worker
     command: ["bun", "src/worker.ts"]
     env_file: .env
+    environment:
+      S3_PREFIX: BMW_GROUP_TEST
+      API_LANGUAGE: en-GB
     depends_on:
       etl-redis:
         condition: service_healthy
@@ -82,6 +87,7 @@ services:
     env_file: .env
     environment:
       PORT: "3005"
+      S3_PREFIX: BMW_GROUP_TEST
     depends_on:
       etl-redis:
         condition: service_healthy
@@ -111,6 +117,8 @@ services:
     container_name: bmw-transformer-worker
     command: ["bun", "src/worker.ts"]
     env_file: .env
+    environment:
+      S3_PREFIX: BMW_GROUP_TEST
     depends_on:
       etl-redis:
         condition: service_healthy
@@ -119,13 +127,14 @@ services:
 
   # Renault reader: API (through Traefik) and its queue worker
   renault-reader-api:
-    image: pablosla/renault-reader:1.0.0
+    image: pablosla/renault-reader:1.1.0
     container_name: renault-reader-api
     command: ["bun", "src/index.ts"]
     env_file: .env
     environment:
       PORT: "3000"
-      S3_PREFIX: ${RENAULT_S3_PREFIX:?set RENAULT_S3_PREFIX in .env}
+      S3_PREFIX: RENAULT_GROUP/files_datasource
+      API_LANGUAGE: es
     depends_on:
       etl-redis:
         condition: service_healthy
@@ -151,12 +160,13 @@ services:
       - "traefik.http.services.renault-reader.loadbalancer.server.port=3000"
 
   renault-reader-worker:
-    image: pablosla/renault-reader:1.0.0
+    image: pablosla/renault-reader:1.1.0
     container_name: renault-reader-worker
     command: ["bun", "src/worker.ts"]
     env_file: .env
     environment:
-      S3_PREFIX: ${RENAULT_S3_PREFIX:?set RENAULT_S3_PREFIX in .env}
+      S3_PREFIX: RENAULT_GROUP/files_datasource
+      API_LANGUAGE: es
     depends_on:
       etl-redis:
         condition: service_healthy
