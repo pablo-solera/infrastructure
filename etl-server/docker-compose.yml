@@ -10,8 +10,9 @@
 # to it (the listening PORT). .env is also what Compose reads to fill the ${...} placeholders of this file.
 
 services:
+  # Redis shared by every reader and transformer (queues and state). Private network only
   etl-redis:
-    image: redis:8.10.2-alpine
+    image: redis:8.12.0-alpine
     container_name: etl-redis
     command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
     volumes:
@@ -23,6 +24,7 @@ services:
       retries: 10
     restart: unless-stopped
 
+  # BMW reader: API (through Traefik) and its queue worker
   bmw-reader-api:
     image: pablosla/bmw-reader:1.1.0
     container_name: bmw-reader-api
@@ -44,9 +46,14 @@ services:
       - default
       - acciona
     labels:
+      # Enable Traefik
       - "traefik.enable=true"
+
+      # Router
       - "traefik.http.routers.bmw-reader.rule=Host(`${BMW_READER_HOSTNAME:?set BMW_READER_HOSTNAME in .env}`)"
       - "traefik.http.routers.bmw-reader.entrypoints=web"
+
+      # Service
       - "traefik.http.services.bmw-reader.loadbalancer.server.port=3004"
 
   bmw-reader-worker:
@@ -66,6 +73,7 @@ services:
     stop_grace_period: 90s
     restart: unless-stopped
 
+  # BMW transformer: API (through Traefik) and its queue worker
   bmw-transformer-api:
     image: pablosla/bmw-transformer:1.0.0
     container_name: bmw-transformer-api
@@ -87,9 +95,14 @@ services:
       - default
       - acciona
     labels:
+      # Enable Traefik
       - "traefik.enable=true"
+
+      # Router
       - "traefik.http.routers.bmw-transformer.rule=Host(`${BMW_TRANSFORMER_HOSTNAME:?set BMW_TRANSFORMER_HOSTNAME in .env}`)"
       - "traefik.http.routers.bmw-transformer.entrypoints=web"
+
+      # Service
       - "traefik.http.services.bmw-transformer.loadbalancer.server.port=3005"
 
   bmw-transformer-worker:
@@ -103,6 +116,7 @@ services:
     stop_grace_period: 90s
     restart: unless-stopped
 
+  # Renault reader: API (through Traefik) and its queue worker
   renault-reader-api:
     image: pablosla/renault-reader:1.0.0
     container_name: renault-reader-api
@@ -124,9 +138,14 @@ services:
       - default
       - acciona
     labels:
+      # Enable Traefik
       - "traefik.enable=true"
+
+      # Router
       - "traefik.http.routers.renault-reader.rule=Host(`${RENAULT_READER_HOSTNAME:?set RENAULT_READER_HOSTNAME in .env}`)"
       - "traefik.http.routers.renault-reader.entrypoints=web"
+
+      # Service
       - "traefik.http.services.renault-reader.loadbalancer.server.port=3000"
 
   renault-reader-worker:
