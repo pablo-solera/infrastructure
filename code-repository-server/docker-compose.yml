@@ -6,7 +6,7 @@
 services:
   # Gitea: the web through Traefik, SSH on host port 222
   gitea:
-    image: docker.gitea.com/gitea:1.26.4
+    image: docker.gitea.com/gitea:1.27.3
     container_name: gitea
     restart: unless-stopped
     environment:
