@@ -11,9 +11,9 @@
 # The site is served over plain HTTP through Traefik, hence SESSION_COOKIE_SECURE=false in .env.
 
 services:
-  # Named "request-extraction-db" (not "postgres") because the web also joins "acciona", where db-server publishes another "postgres".
+  # PostgreSQL dedicated to the web (private network only). Named "request-extraction-db" so no name clashes on "acciona".
   request-extraction-db:
-    image: postgres:18.3
+    image: postgres:18.7
     container_name: request-extraction-postgres
     restart: unless-stopped
     environment:
@@ -45,6 +45,7 @@ services:
       request-extraction-db:
         condition: service_healthy
 
+  # Request extraction web (Next.js) behind Traefik
   web:
     image: pablosla/request-extraction-web:1.0.0
     container_name: request-extraction-web
@@ -67,9 +68,14 @@ services:
       - default
       - acciona
     labels:
+      # Enable Traefik
       - "traefik.enable=true"
+
+      # Router
       - "traefik.http.routers.request-extraction.rule=Host(`${TRAEFIK_HOSTNAME:?set TRAEFIK_HOSTNAME in .env}`)"
       - "traefik.http.routers.request-extraction.entrypoints=web"
+
+      # Service
       - "traefik.http.services.request-extraction.loadbalancer.server.port=3000"
 
   # Calls the reconciliation endpoint every minute with the web image itself (Node's fetch), so requests, loads and email
