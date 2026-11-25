@@ -1,7 +1,7 @@
 # Work-from-home web with its own dedicated PostgreSQL and the wfh-watcher Telegram bot.
 #
 # Settings: the web loads .env (env_file) and overrides here, in "environment", only what depends on this stack: the
-# database URL, the mail defaults and a fixed Oracle client path. .env is also what Compose reads to fill the ${...}
+# database URL, the public address, the mail defaults and a fixed Oracle client path. .env is also what Compose reads to fill the ${...}
 # placeholders of this file.
 
 services:
@@ -13,6 +13,8 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@wfh-db:5432/${POSTGRES_DB}
+      # Public address used for the links in emails, from the host name Traefik serves.
+      APP_BASE_URL: http://${TRAEFIK_HOSTNAME:?set TRAEFIK_HOSTNAME in .env}
       MAIL_ENABLED: ${MAIL_ENABLED:-true}
       SMTP_HOST: ${SMTP_HOST:-10.33.144.238}
       SMTP_PORT: ${SMTP_PORT:-25}
