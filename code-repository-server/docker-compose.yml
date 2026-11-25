@@ -74,8 +74,8 @@ services:
 
   # Gitea Actions runner: runs the jobs on the host's Docker daemon. It reaches Gitea over this stack's private network.
   gitea-runner:
-    image: gitea/act_runner:0.6.1
-    container_name: runner-1
+    image: docker.io/gitea/runner:6.0.1
+    container_name: gitea-runner
     restart: unless-stopped
     environment:
       GITEA_INSTANCE_URL: http://gitea:3000
