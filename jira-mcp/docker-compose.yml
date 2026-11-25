@@ -1,17 +1,22 @@
 services:
+  # Atlassian MCP server (Jira) over streamable HTTP
   mcp-jira:
-    image: mcp/atlassian:latest
+    image: ghcr.io/sooperset/mcp-atlassian:0.24.8
     container_name: mcp-jira
-    command: ["--transport", "streamable-http", "--stateless", "--port", "9000"]
-    env_file: ./.env
     restart: unless-stopped
+    command: ["--transport", "streamable-http", "--stateless", "--port", "9000"]
+    env_file: .env
     networks:
       - acciona
     labels:
+      # Enable Traefik
       - "traefik.enable=true"
-      - "traefik.docker.network=acciona"
-      - "traefik.http.routers.mcp-jira.rule=Host(`${TRAEFIK_HOSTNAME}`)"
+
+      # Router
+      - "traefik.http.routers.mcp-jira.rule=Host(`${TRAEFIK_HOSTNAME:?set TRAEFIK_HOSTNAME in .env}`)"
       - "traefik.http.routers.mcp-jira.entrypoints=web"
+
+      # Service
       - "traefik.http.services.mcp-jira.loadbalancer.server.port=9000"
 
 networks:
