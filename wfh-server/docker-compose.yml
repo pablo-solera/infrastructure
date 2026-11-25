@@ -1,70 +1,69 @@
+# Work-from-home web with its own dedicated PostgreSQL and the wfh-watcher Telegram bot.
+#
+# Settings: the web loads .env (env_file) and overrides here, in "environment", only what depends on this stack: the
+# database URL, the mail defaults and a fixed Oracle client path. .env is also what Compose reads to fill the ${...}
+# placeholders of this file.
+
 services:
+  # Work-from-home web (Next.js) behind Traefik
   web:
-    image: pablosla/work-from-home-web:latest
+    image: pablosla/work-from-home-web:2.11.2
     container_name: work-from-home-web
     restart: unless-stopped
+    env_file: .env
     environment:
-      # Next.js must listen on both Docker network interfaces so Traefik can reach it.
-      HOSTNAME: 0.0.0.0
-      DATABASE_URL: ${DATABASE_URL}
-      SESSION_SECRET: ${SESSION_SECRET}
-      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE}
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@wfh-db:5432/${POSTGRES_DB}
       MAIL_ENABLED: ${MAIL_ENABLED:-true}
       SMTP_HOST: ${SMTP_HOST:-10.33.144.238}
       SMTP_PORT: ${SMTP_PORT:-25}
       SMTP_SECURE: ${SMTP_SECURE:-false}
       SMTP_FROM: ${SMTP_FROM:-teletrabajo@audatex.es}
-      APP_BASE_URL: ${APP_BASE_URL}
-      ORACLE_USER: ${ORACLE_USER}
-      ORACLE_PASSWORD: ${ORACLE_PASSWORD}
-      ORACLE_CONNECT_STRING: ${ORACLE_CONNECT_STRING}
-      ORACLE_TIMERTASK_SCHEMA: ${ORACLE_TIMERTASK_SCHEMA}
-      ORACLE_STAFF_LINE_IDS: ${ORACLE_STAFF_LINE_IDS}
-      ORACLE_EXCLUDED_GROUP_IDS: ${ORACLE_EXCLUDED_GROUP_IDS}
       ORACLE_ADMIN_GROUP_ID: ${ORACLE_ADMIN_GROUP_ID:-1024}
       ORACLE_COORDINATOR_GROUP_ID: ${ORACLE_COORDINATOR_GROUP_ID:-1017}
       ORG_SNAPSHOT_TTL_SECONDS: ${ORG_SNAPSHOT_TTL_SECONDS:-60}
-      TEST_ACCOUNTS_ENABLED: ${TEST_ACCOUNTS_ENABLED}
-      TEST_ACCOUNTS_PASSWORD: ${TEST_ACCOUNTS_PASSWORD}
-      TEST_ACCOUNT_ADMIN: ${TEST_ACCOUNT_ADMIN}
-      TEST_ACCOUNT_COORDINATOR: ${TEST_ACCOUNT_COORDINATOR}
-      TEST_ACCOUNT_EMPLOYEE: ${TEST_ACCOUNT_EMPLOYEE}
-      INTEGRATION_LDAP_URL: ${INTEGRATION_LDAP_URL}
-      INTEGRATION_LDAP_ACCESSACCOUNT_UPN: ${INTEGRATION_LDAP_ACCESSACCOUNT_UPN}
-      INTEGRATION_LDAP_ACCESSACCOUNT_PWD: ${INTEGRATION_LDAP_ACCESSACCOUNT_PWD}
-      INTEGRATION_LDAP_USER_BASESEARCHGROUP: ${INTEGRATION_LDAP_USER_BASESEARCHGROUP}
+      # Provided by the image. Fixed here so an empty value in .env can never override it and break the Oracle client.
+      ORACLE_CLIENT_LIB_DIR: /opt/oracle/instantclient
     depends_on:
-      - postgres
+      wfh-db:
+        condition: service_healthy
     networks:
-      - acciona
       - default
+      - acciona
     labels:
+      # Enable Traefik
       - "traefik.enable=true"
-      - "traefik.http.routers.wfh.rule=Host(`${TRAEFIK_HOSTNAME}`)"
+
+      # Router
+      - "traefik.http.routers.wfh.rule=Host(`${TRAEFIK_HOSTNAME:?set TRAEFIK_HOSTNAME in .env}`)"
       - "traefik.http.routers.wfh.entrypoints=web"
+
+      # Service
       - "traefik.http.services.wfh.loadbalancer.server.port=3000"
 
-  postgres:
-    image: postgres:18.3
+  # PostgreSQL dedicated to the web (private network only). Named "wfh-db" so no name clashes on "acciona".
+  wfh-db:
+    image: postgres:18.7
     container_name: work-from-home-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    ports:
-      - "5432:5432"
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in .env}
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
     volumes:
       - postgres_data:/var/lib/postgresql
-    networks:
-      - default
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
+  # Telegram bot that reports changes to a person's work-from-home days
   wfh-watcher:
-    image: pablosla/wfh-watcher:latest
+    image: pablosla/wfh-watcher:v1.0.0
     container_name: wfh-watcher
     restart: unless-stopped
     environment:
-      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@wfh-db:5432/${POSTGRES_DB}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID}
       TARGET_ORACLE_EMP_ID: ${WATCHER_TARGET_ORACLE_EMP_ID:-44}
@@ -72,9 +71,8 @@ services:
     volumes:
       - wfh_watcher_data:/app/data
     depends_on:
-      - postgres
-    networks:
-      - default
+      wfh-db:
+        condition: service_healthy
 
 volumes:
   postgres_data:
