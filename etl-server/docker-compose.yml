@@ -7,7 +7,8 @@
 # Image versions are written in each "image:" line (the version of the application's package.json); update them there on a release.
 #
 # Settings: every application service loads .env (env_file) and then overrides, here in "environment", what is specific
-# to it (the listening PORT). .env is also what Compose reads to fill the ${...} placeholders of this file.
+# to it: the listening PORT and the Renault reader's S3 prefix (the shared S3_PREFIX of .env is BMW's). .env is also what
+# Compose reads to fill the ${...} placeholders of this file.
 
 services:
   # Redis shared by every reader and transformer (queues and state). Private network only
@@ -124,6 +125,7 @@ services:
     env_file: .env
     environment:
       PORT: "3000"
+      S3_PREFIX: ${RENAULT_S3_PREFIX:?set RENAULT_S3_PREFIX in .env}
     depends_on:
       etl-redis:
         condition: service_healthy
@@ -153,6 +155,8 @@ services:
     container_name: renault-reader-worker
     command: ["bun", "src/worker.ts"]
     env_file: .env
+    environment:
+      S3_PREFIX: ${RENAULT_S3_PREFIX:?set RENAULT_S3_PREFIX in .env}
     depends_on:
       etl-redis:
         condition: service_healthy
