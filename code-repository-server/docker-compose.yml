@@ -1,22 +1,30 @@
+# Gitea with its own dedicated PostgreSQL and a Gitea Actions runner.
+#
+# Settings: the database credentials are the POSTGRES_* values of .env, used both to create the database and by Gitea to
+# connect to it. .env is also what Compose reads to fill the ${...} placeholders of this file.
+
 services:
+  # Gitea: the web through Traefik, SSH on host port 222
   gitea:
-    image: docker.gitea.com/gitea:1.26
+    image: docker.gitea.com/gitea:1.26.4
     container_name: gitea
-    environment:
-      - USER_UID=${USER_UID}
-      - USER_GID=${USER_GID}
-      - GITEA__database__DB_TYPE=${GITEA_DATABASE_TYPE}
-      - GITEA__database__HOST=${GITEA_DATABASE_HOST}
-      - GITEA__database__NAME=${GITEA_DATABASE_NAME}
-      - GITEA__database__USER=${GITEA_DATABASE_USER}
-      - GITEA__database__PASSWD=${GITEA_DATABASE_PASSWORD}
-      - GITEA__service__DISABLE_REGISTRATION=${GITEA_SERVICE_DISABLE_REGISTRATION}
-      - GITEA__repository__DEFAULT_BRANCH=${GITEA_REPOSITORY_DEFAULT_BRANCH}
-      - GITEA__metrics__ENABLED=${GITEA_METRICS_ENABLED}
-      - GITEA__metrics__ENABLED_ISSUE_BY_LABEL=${GITEA_ENABLED_ISSUE_BY_LABEL}
-      - GITEA__metrics__ENABLED_ISSUE_BY_REPOSITORY=${GITEA_ENABLED_ISSUE_BY_REPOSITORY}
-      - GITEA__migrations__ALLOW_LOCALNETWORKS=${GITEA_MIGRATIONS_ALLOW_LOCALNETWORKS}
     restart: unless-stopped
+    environment:
+      USER_UID: ${USER_UID:-1000}
+      USER_GID: ${USER_GID:-1000}
+      # Database
+      GITEA__database__DB_TYPE: postgres
+      GITEA__database__HOST: gitea-db:5432
+      GITEA__database__NAME: ${POSTGRES_DB:?set POSTGRES_DB in .env}
+      GITEA__database__USER: ${POSTGRES_USER:?set POSTGRES_USER in .env}
+      GITEA__database__PASSWD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      # Service, repository, metrics and migrations
+      GITEA__service__DISABLE_REGISTRATION: ${GITEA_SERVICE_DISABLE_REGISTRATION:-true}
+      GITEA__repository__DEFAULT_BRANCH: ${GITEA_REPOSITORY_DEFAULT_BRANCH:-master}
+      GITEA__metrics__ENABLED: ${GITEA_METRICS_ENABLED:-true}
+      GITEA__metrics__ENABLED_ISSUE_BY_LABEL: ${GITEA_ENABLED_ISSUE_BY_LABEL:-true}
+      GITEA__metrics__ENABLED_ISSUE_BY_REPOSITORY: ${GITEA_ENABLED_ISSUE_BY_REPOSITORY:-true}
+      GITEA__migrations__ALLOW_LOCALNETWORKS: ${GITEA_MIGRATIONS_ALLOW_LOCALNETWORKS:-true}
     volumes:
       - gitea_data:/data
       - /etc/timezone:/etc/timezone:ro
@@ -24,43 +32,60 @@ services:
     ports:
       - "222:22"
     depends_on:
-      - postgres
+      gitea-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:3000/api/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
     networks:
-      - acciona
       - default
+      - acciona
     labels:
+      # Enable Traefik
       - "traefik.enable=true"
-      - "traefik.http.routers.gitea.rule=Host(`${TRAEFIK_HOSTNAME}`)"
+
+      # Router
+      - "traefik.http.routers.gitea.rule=Host(`${TRAEFIK_HOSTNAME:?set TRAEFIK_HOSTNAME in .env}`)"
       - "traefik.http.routers.gitea.entrypoints=web"
+
+      # Service
       - "traefik.http.services.gitea.loadbalancer.server.port=3000"
 
-  postgres:
+  # PostgreSQL dedicated to Gitea (private network only). Named "gitea-db" so no name clashes on "acciona".
+  gitea-db:
+    image: postgres:18.7
     container_name: code-repository-postgres
-    image: postgres:18.3
     restart: unless-stopped
     shm_size: 128mb
     environment:
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB}
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in .env}
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
     volumes:
       - postgres_data:/var/lib/postgresql
-    networks:
-      - default
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Gitea Actions runner: runs the jobs on the host's Docker daemon. It reaches Gitea over this stack's private network.
   gitea-runner:
+    image: gitea/act_runner:0.6.1
     container_name: runner-1
-    image: gitea/act_runner
     restart: unless-stopped
-    depends_on:
-      - gitea
+    environment:
+      GITEA_INSTANCE_URL: http://gitea:3000
+      GITEA_RUNNER_REGISTRATION_TOKEN: ${GITEA_RUNNER_REGISTRATION_TOKEN:-}
     volumes:
       - gitea_runner_data:/data
       - /var/run/docker.sock:/var/run/docker.sock
-    environment:
-      - GITEA_INSTANCE_URL=${GITEA_INSTANCE_URL}
-      - GITEA_RUNNER_REGISTRATION_TOKEN=${GITEA_RUNNER_REGISTRATION_TOKEN}
-    networks:
-      - acciona
+    depends_on:
+      gitea:
+        condition: service_healthy
 
 volumes:
   postgres_data:
