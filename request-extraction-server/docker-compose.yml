@@ -5,7 +5,8 @@
 # Image versions are written in each "image:" line (the version of the web's package.json); update them there on a release.
 #
 # Settings: the web loads .env (env_file) and overrides here, in "environment", only what depends on this stack: the
-# database URL, the internal addresses of the readers and a fixed Oracle client path. .env is also what Compose reads to
+# database URL, the public address, the internal addresses of the readers and a fixed Oracle client path. The language and
+# the S3 of the extractions belong to the readers (../etl-server), not to the web. .env is also what Compose reads to
 # fill the ${...} placeholders of this file.
 #
 # The site is served over plain HTTP through Traefik, hence SESSION_COOKIE_SECURE=false in .env.
@@ -31,7 +32,7 @@ services:
   # One-shot: sets the database up and exits (the web only starts after it succeeds). It applies the migrations and, when the
   # test accounts are enabled, creates their users: without a row in "users" a test account cannot sign in. It does not use Oracle.
   migrate:
-    image: pablosla/request-extraction-web-migrate:1.0.0
+    image: pablosla/request-extraction-web-migrate:2.0.0
     container_name: request-extraction-migrate
     restart: "no"
     environment:
@@ -47,12 +48,14 @@ services:
 
   # Request extraction web (Next.js) behind Traefik
   web:
-    image: pablosla/request-extraction-web:1.0.0
+    image: pablosla/request-extraction-web:2.0.0
     container_name: request-extraction-web
     restart: unless-stopped
     env_file: .env
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@request-extraction-db:5432/${POSTGRES_DB}
+      # Public address used for the links in emails, from the host name Traefik serves.
+      APP_BASE_URL: http://${TRAEFIK_HOSTNAME:?set TRAEFIK_HOSTNAME in .env}
       # Readers and transformer, by service name on the shared network.
       BMW_READER_BASE_URL: http://bmw-reader-api:3004
       BMW_TRANSFORMER_BASE_URL: http://bmw-transformer-api:3005
@@ -81,7 +84,7 @@ services:
   # Calls the reconciliation endpoint every minute with the web image itself (Node's fetch), so requests, loads and email
   # retries keep moving even when nobody has the history page open. It uses this project's private network.
   reconcile:
-    image: pablosla/request-extraction-web:1.0.0
+    image: pablosla/request-extraction-web:2.0.0
     container_name: request-extraction-reconcile
     restart: unless-stopped
     environment:
