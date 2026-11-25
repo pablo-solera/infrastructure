@@ -1,4 +1,5 @@
 services:
+  # SQLcl MCP for the TIMERTASK Oracle schema, published over streamable HTTP
   mcp-timertask:
     image: pablosla/timertask-mcp:1.1.0
     container_name: mcp-timertask
@@ -16,10 +17,14 @@ services:
     networks:
       - acciona
     labels:
+      # Enable Traefik
       - "traefik.enable=true"
-      - "traefik.docker.network=acciona"
-      - "traefik.http.routers.mcp-timertask.rule=Host(`${TRAEFIK_HOSTNAME}`)"
+
+      # Router
+      - "traefik.http.routers.mcp-timertask.rule=Host(`${TRAEFIK_HOSTNAME:?set TRAEFIK_HOSTNAME in .env}`)"
       - "traefik.http.routers.mcp-timertask.entrypoints=web"
+
+      # Service
       - "traefik.http.services.mcp-timertask.loadbalancer.server.port=9001"
 
 networks:
